@@ -1,0 +1,9 @@
+# name  url  ref  mode
+# mode "strict": the fetch FAILS if the ref cannot be fetched (reproducible).
+# mode "loose" : falls back to the default branch and logs a WARNING; the exact
+#                commit that was used is always written to third_party/deps-resolved.txt.
+# After the first green build, replace each ref with the full commit SHA from
+# deps-resolved.txt to make the build bit-for-bit reproducible.
+SDL2        https://github.com/libsdl-org/SDL        release-2.30.8        strict
+quakespasm  https://github.com/sezero/quakespasm     quakespasm-0.96.3     strict
+gl4es       https://github.com/ptitSeb/gl4es         v1.1.4                loose

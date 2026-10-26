@@ -1,0 +1,9 @@
+third_party/
+app/src/main/java/org/libsdl/
+build/
+.gradle/
+.cxx/
+local.properties
+*.apk
+*.log
+_proj/
