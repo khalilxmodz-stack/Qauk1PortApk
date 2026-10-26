@@ -1,0 +1,84 @@
+name: Build KhalilXmodz.Port APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # Phone-friendly mode: if project.zip is in the repo root, unpack and build that.
+      - name: Locate project
+        run: |
+          if [ -f project.zip ]; then
+            mkdir -p _proj && unzip -q project.zip -d _proj
+            d=$(find _proj -maxdepth 2 -name settings.gradle -printf '%h\n' | head -n1)
+            test -n "$d" || { echo "settings.gradle not found inside project.zip"; exit 1; }
+            echo "PROJ=$GITHUB_WORKSPACE/$d" >> "$GITHUB_ENV"
+          else
+            echo "PROJ=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK / NDK / CMake
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - name: Fetch pinned dependencies
+        working-directory: ${{ env.PROJ }}
+        run: bash scripts/fetch_deps.sh
+
+      - name: Patch QuakeSpasm input hooks
+        working-directory: ${{ env.PROJ }}
+        run: python3 scripts/apply_patches.py
+
+      - name: Ensure debug keystore exists
+        run: |
+          mkdir -p ~/.android
+          [ -f ~/.android/debug.keystore ] || keytool -genkeypair -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK (ARMv7 + ARM64)
+        working-directory: ${{ env.PROJ }}
+        run: gradle --no-daemon :app:assembleRelease --stacktrace 2>&1 | tee build.log
+
+      - name: Verify APK
+        working-directory: ${{ env.PROJ }}
+        run: bash scripts/verify_apk.sh app/build/outputs/apk/release/*.apk 2>&1 | tee verify.log
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KhalilXmodz-Port-apk
+          path: ${{ env.PROJ }}/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            ${{ env.PROJ }}/build.log
+            ${{ env.PROJ }}/verify.log
+            ${{ env.PROJ }}/third_party/deps-resolved.txt
+            ${{ env.PROJ }}/app/.cxx/**/*.txt
+            ${{ env.PROJ }}/app/.cxx/**/*.log
+          if-no-files-found: ignore
