@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.khalilxmodz.port'
+    compileSdk 34
+    ndkVersion '26.1.10909125'
+
+    defaultConfig {
+        applicationId 'com.khalilxmodz.port'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+        externalNativeBuild {
+            cmake { arguments '-DANDROID_PLATFORM=android-24' }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+    packaging {
+        // SDL loads the main .so from nativeLibraryDir, so libs must be extracted.
+        jniLibs { useLegacyPackaging true }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Debug-signed on purpose: no private keys needed, still an optimized build.
+            signingConfig signingConfigs.debug
+            ndk { debugSymbolLevel 'NONE' }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
