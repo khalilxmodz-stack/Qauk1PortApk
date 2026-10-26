@@ -60,7 +60,19 @@ jobs:
 
       - name: Build APK (ARMv7 + ARM64)
         working-directory: ${{ env.PROJ }}
-        run: gradle --no-daemon :app:assembleRelease --stacktrace 2>&1 | tee build.log
+        run: |
+          set +e
+          gradle --no-daemon --console=plain :app:assembleRelease --stacktrace > build.log 2>&1
+          rc=$?
+          set -e
+          echo "gradle exit code: $rc (full log: $(wc -l < build.log) lines)"
+          if [ "$rc" -ne 0 ]; then
+            echo "================= ERROR SUMMARY (copy from here) ================="
+            grep -n -E -A8 "FAILED:|CMake Error|error:|fatal error|undefined reference|What went wrong|Execution failed" build.log | head -150
+            echo "================= LAST 40 LINES ================="
+            tail -n 40 build.log
+            exit "$rc"
+          fi
 
       - name: Verify APK
         working-directory: ${{ env.PROJ }}
